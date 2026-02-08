@@ -8,7 +8,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 
-// 1Enum for match status
+// Enum for match status
 export const matchStatusEnum = pgEnum("match_status", [
   "scheduled",
   "live",

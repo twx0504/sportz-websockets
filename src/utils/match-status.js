@@ -6,7 +6,11 @@ export function getMatchStatus(startTime, endTime, now = new Date()) {
   const end = new Date(endTime);
 
   // If either date is invalid, return null
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    end <= start
+  ) {
     return null;
   }
 

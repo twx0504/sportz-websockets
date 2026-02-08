@@ -30,12 +30,7 @@ export const matchIdParamSchema = z.object({
 // Helpers
 // -----------------------------
 
-const isoDateStringSchema = z
-  .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), {
-    message: "Invalid ISO date string",
-  });
-
+const isoDateStringSchema = z.iso.datetime();
 // -----------------------------
 // Body Schemas
 // -----------------------------

@@ -23,7 +23,7 @@ matchRouter.get("/", async (req, res) => {
     // Return 400 if query parameters are invalid
     return res.status(400).json({
       error: "Invalid query.",
-      details: JSON.stringify(parsed.error),
+      details: parsed.error.issues,
     });
   }
 
@@ -44,7 +44,7 @@ matchRouter.get("/", async (req, res) => {
     // Return 500 if database query fails
     res
       .status(500)
-      .json({ error: "Failed to list matches.", details: JSON.stringify(e) });
+      .json({ error: "Failed to list matches.", details: JSON.stringify(err) });
   }
 });
 
@@ -52,17 +52,18 @@ matchRouter.get("/", async (req, res) => {
 matchRouter.post("/", async (req, res) => {
   // Validate request body using Zod schema
   const parsed = createMatchSchema.safeParse(req.body);
-  const {
-    data: { startTime, endTime, homeScore, awayScore },
-  } = parsed;
 
   if (!parsed.success) {
     // Return 400 if payload is invalid
     return res.status(400).json({
       error: "Invalid payload.",
-      details: JSON.stringify(parsed.error),
+      details: parsed.error.issues,
     });
   }
+
+  const {
+    data: { startTime, endTime, homeScore, awayScore },
+  } = parsed;
 
   try {
     // Insert new match into the database with default scores if not provided
@@ -85,6 +86,6 @@ matchRouter.post("/", async (req, res) => {
     // Return 500 if insertion fails
     res
       .status(500)
-      .json({ error: "Failed to create match.", details: JSON.stringify(e) });
+      .json({ error: "Failed to create match.", details: JSON.stringify(err) });
   }
 });

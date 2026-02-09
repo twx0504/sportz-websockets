@@ -1,7 +1,8 @@
 import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/node";
 
 const arcjetKey = process.env.ARCJET_KEY;
-const arcjetMode = process.env.ARCJET_MODE === "DRY_RUN" ? "DRY_RUN" : "LIVE";
+const arcjetMode =
+  process.env.ARCJET_ENV === "development" ? "DRY_RUN" : "LIVE";
 
 /**
  * HTTP Arcjet instance for protecting HTTP routes.
@@ -9,7 +10,7 @@ const arcjetMode = process.env.ARCJET_MODE === "DRY_RUN" ? "DRY_RUN" : "LIVE";
  *
  * Rules:
  * 1. Shield: core protection
- * 2. detectBot: blocks bots except search engines, preview services, and CURL
+ * 2. detectBot: blocks bots except search engines, and preview services
  * 3. slidingWindow: rate-limiting (max 50 requests per 10s)
  */
 export const httpArcjet = arcjetKey
@@ -21,7 +22,11 @@ export const httpArcjet = arcjetKey
           mode: arcjetMode,
           allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:PREVIEW"],
         }),
-        slidingWindow({ mode: arcjetMode, interval: "10s", max: 50 }),
+        slidingWindow({
+          mode: arcjetMode,
+          interval: "10s",
+          max: 50,
+        }),
       ],
     })
   : null;

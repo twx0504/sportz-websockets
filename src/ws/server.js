@@ -59,13 +59,20 @@ export function attachWebSocketServer(server) {
    * This allows us to run security checks before accepting connection.
    */
   server.on("upgrade", async (req, socket, head) => {
-    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+    let pathname;
+    try {
+      ({ pathname } = new URL(req.url, `http://${req.headers.host}`));
+    } catch {
+      socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+      socket.destroy();
+      return;
+    }
 
     // Only allow upgrades to /ws path
     if (pathname !== "/ws") {
-      // send HTTP 404
+      // Send HTTP 404
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-      // close TCP socket
+      // Close TCP socket
       socket.destroy();
       return;
     }

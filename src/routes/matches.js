@@ -80,6 +80,10 @@ matchRouter.post("/", async (req, res) => {
       })
       .returning();
 
+    // Broadcast to all client new match has just created
+    if (res.app.locals.broadcastMatchCreated) {
+      res.app.locals.broadcastMatchCreated(event);
+    }
     // Return the newly created match with 201 status
     res.status(201).json({ data: event });
   } catch (err) {

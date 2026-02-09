@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { wsArcjet } from "../arcjet.js";
 
 /**
  * Send a JSON message to a single WebSocket client.
@@ -54,8 +55,24 @@ export function attachWebSocketServer(server) {
   }, 30000);
 
   // Listen for new client connections
-  wss.on("connection", (socket, request) => {
-    console.log("New WebSocket connection from:", request.socket.remoteAddress);
+  wss.on("connection", async (socket, req) => {
+    console.log("New WebSocket connection from:", req.socket.remoteAddress);
+
+    if (wsArcjet) {
+      try {
+        const decision = await wsArcjet.protect(req);
+        if (decision.isDenied()) {
+          const code = decision.reason.isRateLimit() ? 1013 : 1008;
+          const reason = decision.reason.isRateLimit()
+            ? "Rate limit exceeded"
+            : "Access denied";
+          socket.close(code, reason);
+        }
+      } catch (err) {
+        console.error(`Ws connection error ${err}`);
+        socket.close(1011, "Server security error");
+      }
+    }
 
     // Mark socket as alive
     socket.isAlive = true;

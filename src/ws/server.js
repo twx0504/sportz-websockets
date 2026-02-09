@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { wsArcjet } from "../arcjet.js";
 
 /**
  * Send a JSON message to a single WebSocket client.
@@ -36,7 +37,7 @@ function broadcast(wss, payload) {
 export function attachWebSocketServer(server) {
   // Create a new WebSocket server that shares the same HTTP server
   const wss = new WebSocketServer({
-    server, // Use the same HTTP server
+    noServer: true,
     path: "/ws", // WebSocket clients connect to /ws
     maxPayload: 1024 * 1024, // Maximum message size: 1MB
   });
@@ -53,19 +54,65 @@ export function attachWebSocketServer(server) {
     });
   }, 30000);
 
-  // Listen for new client connections
-  wss.on("connection", (socket, request) => {
-    console.log("New WebSocket connection from:", request.socket.remoteAddress);
+  /**
+   * Handle WebSocket upgrade requests manually.
+   * This allows us to run security checks before accepting connection.
+   */
+  server.on("upgrade", async (req, socket, head) => {
+    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
 
-    // Mark socket as alive
+    // Only allow upgrades to /ws path
+    if (pathname !== "/ws") {
+      // send HTTP 404
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      // close TCP socket
+      socket.destroy();
+      return;
+    }
+
+    // Run Arcjet protection/security check if available
+    if (wsArcjet) {
+      try {
+        const decision = await wsArcjet.protect(req);
+        if (decision.isDenied()) {
+          if (decision.reason.isRateLimit()) {
+            socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n");
+          } else {
+            socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+          }
+          socket.destroy();
+          return;
+        }
+      } catch (err) {
+        console.error("WS upgrade protection error", err);
+        socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+    }
+
+    // If all checks pass, upgrade the HTTP connection to a WebSocket
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      // Emit 'connection' event for the new WebSocket
+      wss.emit("connection", ws, req);
+    });
+  });
+
+  /**
+   * Handle newly established WebSocket connections
+   */
+  wss.on("connection", async (socket, req) => {
+    console.log("New WebSocket connection from:", req.socket.remoteAddress);
+
+    // Mark socket as alive for heartbeat
     socket.isAlive = true;
 
-    // Listen for pong messages from client
+    // Update alive status when receiving pong
     socket.on("pong", () => {
       socket.isAlive = true;
     });
 
-    // Send a welcome message to the newly connected client
+    // Send a welcome message to the client
     sendJson(socket, {
       type: "welcome",
     });
@@ -76,7 +123,9 @@ export function attachWebSocketServer(server) {
     });
   });
 
-  // Clean up
+  /**
+   * Cleanup: stop heartbeat when WebSocket server closes
+   */
   wss.on("close", () => {
     // Clear heartbeat interval when server closes
     clearInterval(heartbeatInterval);

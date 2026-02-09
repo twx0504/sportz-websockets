@@ -41,9 +41,29 @@ export function attachWebSocketServer(server) {
     maxPayload: 1024 * 1024, // Maximum message size: 1MB
   });
 
+  /**
+   * Periodically ping all clients to check if they are alive.
+   * If a client doesn't respond with pong, terminate it.
+   */
+  const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (!ws.isAlive) return ws.terminate();
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
   // Listen for new client connections
   wss.on("connection", (socket, request) => {
     console.log("New WebSocket connection from:", request.socket.remoteAddress);
+
+    // Mark socket as alive
+    socket.isAlive = true;
+
+    // Listen for pong messages from client
+    socket.on("pong", () => {
+      socket.isAlive = true;
+    });
 
     // Send a welcome message to the newly connected client
     sendJson(socket, {
@@ -54,6 +74,12 @@ export function attachWebSocketServer(server) {
     socket.on("error", (err) => {
       console.error(err);
     });
+  });
+
+  // Clean up
+  wss.on("close", () => {
+    // Clear heartbeat interval when server closes
+    clearInterval(heartbeatInterval);
   });
 
   /**

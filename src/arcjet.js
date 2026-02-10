@@ -1,7 +1,8 @@
 import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/node";
 
 const arcjetKey = process.env.ARCJET_KEY;
-const arcjetMode = process.env.ARCJET_MODE === "DRY_RUN" ? "DRY_RUN" : "LIVE";
+const arcjetMode =
+  process.env.ARCJET_ENV === "development" ? "DRY_RUN" : "LIVE";
 
 // HTTP Arcjet instance
 export const httpArcjet = arcjetKey
@@ -13,7 +14,11 @@ export const httpArcjet = arcjetKey
           mode: arcjetMode,
           allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:PREVIEW", "POSTMAN"],
         }),
-        slidingWindow({ mode: arcjetMode, interval: "10s", max: 50 }),
+        slidingWindow({
+          mode: arcjetMode,
+          interval: "10s",
+          max: 50,
+        }),
       ],
     })
   : null;

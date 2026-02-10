@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import { matchRouter } from "./routes/matches.js";
+import { commentaryRouter } from "./routes/commentary.js";
 import { attachWebSocketServer } from "./ws/server.js";
 import { securityMiddleware } from "./arcjet.js";
 
@@ -38,6 +39,7 @@ app.use(securityMiddleware());
 // Mount matchRouter on /matches path
 // Routers are technically middleware that can have multiple routes inside
 app.use("/matches", matchRouter);
+app.use("/matches/:id/commentary", commentaryRouter);
 
 // Root route for testing / health check
 app.get("/", (req, res) => {

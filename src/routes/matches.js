@@ -68,7 +68,7 @@ matchRouter.post("/", async (req, res) => {
   try {
     // Insert new match into the database with default scores if not provided
     // Also compute the match status using the utility function
-    const [event] = await db
+    const [insertedMatch] = await db
       .insert(matches)
       .values({
         ...parsed.data,
@@ -83,13 +83,13 @@ matchRouter.post("/", async (req, res) => {
     // Broadcast to all client new match has just created
     try {
       if (typeof res.app.locals.broadcastMatchCreated === "function") {
-        res.app.locals.broadcastMatchCreated(event);
+        res.app.locals.broadcastMatchCreated(insertedMatch);
       }
     } catch (err) {
       console.warn("Failed to broadcast match_created:", err);
     }
     // Return the newly created match with 201 status
-    res.status(201).json({ data: event });
+    res.status(201).json({ data: insertedMatch });
   } catch (err) {
     // Return 500 if insertion fails
     res

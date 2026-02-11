@@ -1,6 +1,45 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { wsArcjet } from "../arcjet.js";
 
+const matchSubscribers = new Map();
+
+/**
+ * Subscribe a WebSocket client to receive updates for a specific match.
+ * @param {number} matchId - The ID of the match to subscribe to.
+ * @param {WebSocket} socket - The WebSocket connection to subscribe.
+ */
+function subscribe(matchId, socket) {
+  if (!matchSubscribers.has(matchId)) {
+    matchSubscribers.set(matchId, new Set());
+  }
+
+  matchSubscribers.get(matchId).add(socket);
+}
+
+/**
+ * Unsubscribe a WebSocket client from receiving updates for a specific match.
+ * @param {number} matchId - The ID of the match to unsubscribe from.
+ * @param {WebSocket} socket - The WebSocket connection to unsubscribe.
+ */
+function unsubscribe(matchId, socket) {
+  const subscribers = matchSubscribers.get(matchId);
+  if (!subscribers) return;
+  subscribers.delete(socket);
+  if (subscribers.size === 0) {
+    matchSubscribers.delete(matchId);
+  }
+}
+
+/**
+ * Remove all match subscriptions for a WebSocket client.
+ * @param {WebSocket} socket - The WebSocket connection to clean up.
+ */
+function cleanupSubscriptions(socket) {
+  for (const matchId of socket.subscriptions) {
+    unsubscribe(matchId, socket);
+  }
+}
+
 /**
  * Send a JSON message to a single WebSocket client.
  * @param {WebSocket} socket - The WebSocket connection to send the message to.
@@ -20,12 +59,60 @@ function sendJson(socket, payload) {
  * @param {WebSocketServer} wss - The WebSocket server instance (WebSocketServer).
  * @param {object} payload - The data to broadcast (will be converted to JSON).
  */
-function broadcast(wss, payload) {
+function broadcastToAll(wss, payload) {
   for (const client of wss.clients) {
     // Only send to clients that are currently open
     if (client.readyState !== WebSocket.OPEN) continue;
     // Convert the payload to a JSON string and send it to the client
     client.send(JSON.stringify(payload));
+  }
+}
+
+/**
+ * Broadcast a JSON message to all clients subscribed to a specific match.
+ * @param {number} matchId - The ID of the match to broadcast to.
+ * @param {object} payload - The data to broadcast (will be converted to JSON).
+ */
+function broadcastToMatch(matchId, payload) {
+  const subscribers = matchSubscribers.get(matchId);
+
+  if (!subscribers || subscribers.size === 0) return;
+
+  const message = JSON.stringify(payload);
+
+  for (const client of subscribers) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
+
+/**
+ * Handle incoming WebSocket messages from a client.
+ * @param {WebSocket} socket - The WebSocket connection that sent the message.
+ * @param {Buffer|string} data - The raw message data received.
+ * @returns
+ */
+function handleMessage(socket, data) {
+  let message;
+
+  try {
+    message = JSON.parse(data.toString());
+  } catch (err) {
+    sendJson(socket, { type: "error", message: "Invalid JSON" });
+  }
+
+  if (message?.type === "subscribe" && Number.isInteger(message.matchId)) {
+    subscribe(message.matchId, socket);
+    socket.subscriptions.add(message.matchId);
+    sendJson(socket, { type: "subscribed", matchId: message.matchId });
+    return;
+  }
+
+  if (message?.type === "unsubscribe" && Number.isInteger(m.matchId)) {
+    unsubscribe(message.matchId, socket);
+    socket.subscriptions.delete(message.matchId);
+    return;
   }
 }
 
@@ -119,14 +206,26 @@ export function attachWebSocketServer(server) {
       socket.isAlive = true;
     });
 
+    // Keep what the socket is subscribed to
+    socket.subscriptions = new Set();
+
     // Send a welcome message to the client
     sendJson(socket, {
       type: "welcome",
     });
 
+    socket.on("message", (data) => {
+      handleMessage(socket, data);
+    });
+
     // Listen for errors on this socket
     socket.on("error", (err) => {
       console.error(err);
+      socket.terminate();
+    });
+
+    socket.on("close", () => {
+      cleanupSubscriptions(socket);
     });
   });
 
@@ -143,9 +242,18 @@ export function attachWebSocketServer(server) {
    * @param {object} match - The match data to send
    */
   function broadcastMatchCreated(match) {
-    broadcast(wss, { type: "match_created", data: match });
+    broadcastToAll(wss, { type: "match_created", data: match });
+  }
+
+  /**
+   * Broadcast a commentary event to all clients subscribed to a specific match.
+   * @param {number} matchId - The ID of the match the commentary is for.
+   * @param {object} comment - The commentary data to broadcast.
+   */
+  function broadcastCommentary(matchId, comment) {
+    broadcastToMatch(matchId, { type: "commentary", data: comment });
   }
 
   // Return helper functions we want to expose
-  return { broadcastMatchCreated };
+  return { broadcastMatchCreated, broadcastCommentary };
 }

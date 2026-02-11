@@ -37,7 +37,7 @@ commentaryRouter.get("/", async (req, res) => {
   try {
     // Extract match ID and limit
     const matchId = paramsResult.data.id;
-    const { limit = 10 } = queryResult.data;
+    const { limit = MAX_LIMIT } = queryResult.data;
     const safeLimit = Math.min(limit, MAX_LIMIT);
 
     // Fetch commentary from database
@@ -81,10 +81,10 @@ commentaryRouter.post("/", async (req, res) => {
   try {
     const matchId = paramsResult.data.id;
 
-    // Insert the commentary into the database
+    // Insert the commentary entry into the database
     // Spread validated body data and attach match ID
     // returning() gives the inserted row
-    const [inserted] = await db
+    const [insertedMatchCommentary] = await db
       .insert(commentary)
       .values({
         matchId,
@@ -92,8 +92,16 @@ commentaryRouter.post("/", async (req, res) => {
       })
       .returning();
 
+    // Broadcast a newly created commentary entry to all clients subscribed to the given match
+    if (res.app.locals.broadcastCommentary) {
+      res.app.locals.broadcastCommentary(
+        insertedMatchCommentary.matchId,
+        insertedMatchCommentary,
+      );
+    }
+
     // Return the inserted commentary
-    res.status(201).json({ data: inserted });
+    res.status(201).json({ data: insertedMatchCommentary });
   } catch (err) {
     console.error(`Failed to create commentary: ${err}`);
     res.status(500).json({ error: "Failed to create commentary." });

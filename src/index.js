@@ -1,3 +1,5 @@
+import AgentAPI from "apminsight";
+AgentAPI.config();
 import express from "express";
 import http from "http";
 import { matchRouter } from "./routes/matches.js";
@@ -32,7 +34,7 @@ app.use(express.json());
 
 // Global security / rate-limiting / bot protection middleware
 // This will run before all routes and filter requests
-app.use(securityMiddleware());
+// app.use(securityMiddleware());
 
 // ------------------------- Routes -------------------------
 // Routers are technically middleware that can have multiple routes inside

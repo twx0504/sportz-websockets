@@ -45,7 +45,6 @@ export function securityMiddleware() {
 
     try {
       const decision = await httpArcjet.protect(req);
-      console.log("ID used for rate limiting:", decision.id);
 
       if (decision.isDenied()) {
         if (decision.reason.isRateLimit()) {

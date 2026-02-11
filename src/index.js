@@ -35,10 +35,12 @@ app.use(express.json());
 app.use(securityMiddleware());
 
 // ------------------------- Routes -------------------------
+// Routers are technically middleware that can have multiple routes inside
 
 // Mount matchRouter on /matches path
-// Routers are technically middleware that can have multiple routes inside
 app.use("/matches", matchRouter);
+
+// Mount commentaryRouter on /matches/:id/commentary path
 app.use("/matches/:id/commentary", commentaryRouter);
 
 // Root route for testing / health check
@@ -50,11 +52,13 @@ app.get("/", (req, res) => {
 
 // Attach WebSocket server to the same HTTP server
 // Returns helper functions, e.g., for broadcasting events
-const { broadcastMatchCreated } = attachWebSocketServer(server);
+const { broadcastMatchCreated, broadcastCommentary } =
+  attachWebSocketServer(server);
 
-// Make broadcastMatchCreated globally accessible via app.locals
+// Make broadcastMatchCreated & broadcastCommentary globally accessible via app.locals
 // This allows other parts of the Express app (like routes) to broadcast events easily
 app.locals.broadcastMatchCreated = broadcastMatchCreated;
+app.locals.broadcastCommentary = broadcastCommentary;
 
 // ------------------------- Server Startup -------------------------
 

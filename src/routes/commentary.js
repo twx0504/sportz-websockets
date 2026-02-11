@@ -37,7 +37,7 @@ commentaryRouter.get("/", async (req, res) => {
   try {
     // Extract match ID and limit
     const matchId = paramsResult.data.id;
-    const { limit = 10 } = queryResult.data;
+    const { limit = MAX_LIMIT } = queryResult.data;
     const safeLimit = Math.min(limit, MAX_LIMIT);
 
     // Fetch commentary from database
